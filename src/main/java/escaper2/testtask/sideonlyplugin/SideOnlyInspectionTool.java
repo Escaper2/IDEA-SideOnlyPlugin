@@ -16,7 +16,6 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
             @Override
             public void visitReferenceExpression(PsiReferenceExpression expression) {
                 super.visitReferenceExpression(expression);
-                System.out.println(expression);
                 checkSideOnly(expression, holder);
             }
 
@@ -36,58 +35,60 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
             public void visitNewExpression(PsiNewExpression expression) {
                 super.visitNewExpression(expression);
                 PsiMethod constructor = expression.resolveConstructor();
-                if (constructor != null) {
-                    checkSideForConstructor(expression.getClassReference(), constructor, holder);
 
-                } else {
-                    checkSideOnly(expression.getClassReference(), holder);
-                }
+                if (constructor != null) checkSideForConstructor(expression.getClassReference(), constructor, holder);
+                else checkSideOnly(expression.getClassReference(), holder);
+            }
+
+            private PsiElement getResolved(PsiElement element) {
+                if (element == null) return null;
+                PsiElement resolved;
+
+                if (element instanceof PsiReference) resolved = ((PsiReference) element).resolve();
+                else resolved = element;
+
+                return resolved;
             }
 
             private void checkSideOnly(PsiElement element, ProblemsHolder holder) {
-                if (element == null) return;
-                PsiElement resolved;
-                if (element instanceof PsiReference) {
-                    resolved = ((PsiReference) element).resolve();
-                } else {
-                    resolved = element;
-                }
+                var resolved = getResolved(element);
                 if (resolved == null) return;
+
                 Side elementSide = getSide(resolved);
                 PsiMethod containingMethod = PsiTreeUtil.getParentOfType(element, PsiMethod.class);
+
                 if (containingMethod != null) {
                     Side methodSide = getSide(containingMethod);
                     elementSide = methodSide.compareSides(elementSide);
                 }
-                if (elementSide == Side.INVALID) {
-                    holder.registerProblem(element, "Can not access side-only " + element + " from here");
-                }
+
+                if (elementSide == Side.INVALID) holder
+                        .registerProblem(element, "Can not access side-only " + element + " from here");
+
             }
 
             private void checkSideForConstructor(PsiElement element, PsiMethod constructor, ProblemsHolder holder) {
-                if (element == null) return;
-                PsiElement resolved;
-                if (element instanceof PsiReference) {
-                    resolved = ((PsiReference) element).resolve();
-                } else {
-                    resolved = element;
-                }
+                var resolved = getResolved(element);
                 if (resolved == null) return;
+
                 Side elementSide = getSide(resolved);
                 Side constructorSide = getSide(constructor);
                 PsiMethod containingMethod = PsiTreeUtil.getParentOfType(element, PsiMethod.class);
+
                 if (containingMethod != null) {
                     Side methodSide = getSide(containingMethod);
                     elementSide = methodSide.compareSides(constructorSide);
                 }
-                if (elementSide == Side.INVALID) {
-                    holder.registerProblem(element, "Can not access side-only  " + element + " from here");
-                }
+
+                if (elementSide == Side.INVALID) holder
+                        .registerProblem(element, "Can not access side-only  " + element + " from here");
+
 
             }
 
             private Side getSide(PsiElement element) {
                 Side side = Side.BOTH;
+
                 if (element instanceof PsiModifierListOwner) {
                     PsiModifierList modifierList = ((PsiModifierListOwner) element).getModifierList();
                     if (modifierList != null) {
@@ -103,6 +104,7 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
                         }
                     }
                 }
+
                 if (element instanceof PsiClass) {
                     PsiClass psiClass = (PsiClass) element;
                     PsiClass superClass = psiClass.getSuperClass();
@@ -120,12 +122,10 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
                     side = side.compareSides(getSide(psiClass.getSuperClass()));
 
 
-                } else if (element instanceof PsiMethod) {
-                    return side.compareSides(getSide(((PsiMethod) element).getContainingClass()));
-
-                } else if (element instanceof PsiField) {
-                    return side.compareSides(getSide(((PsiField) element).getContainingClass()));
                 }
+                else if (element instanceof PsiMethod) return side.compareSides(getSide(((PsiMethod) element).getContainingClass()));
+
+                else if (element instanceof PsiField) return side.compareSides(getSide(((PsiField) element).getContainingClass()));
 
                 return side;
             }
