@@ -1,3 +1,12 @@
+/**
+ This class represents an inspection tool for IntelliJ IDEA that checks if a code element is marked with the
+ SideOnly annotation and if it is being accessed from the wrong side. The SideOnly annotation is used to mark code
+ elements that should only be accessed from one side of a client-server application, such as the client or server side.
+ If an element marked with the SideOnly annotation is accessed from the wrong side, this inspection tool will report a
+ problem.
+ */
+
+
 package escaper2.testtask.sideonlyplugin;
 
 import com.intellij.codeInspection.*;
@@ -9,15 +18,37 @@ import org.jetbrains.annotations.NotNull;
 
 public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool {
 
+    /**
+     * Builds a visitor for the code elements that this inspection tool checks.
+     *
+     * @param holder      The holder that collects problems found during the inspection.
+     * @param isOnTheFly  True if the inspection is done on-the-fly, false if it is done on demand.
+     * @return            The visitor.
+     */
+
     @NotNull
     @Override
     public PsiElementVisitor buildVisitor(@NotNull final ProblemsHolder holder, boolean isOnTheFly) {
         return new JavaElementVisitor() {
+
+            /**
+             * Checks if the referenced element is marked with the SideOnly annotation and if it is being accessed
+             * from the wrong side.
+             *
+             * @param expression  The reference expression to visit.
+             */
+
             @Override
             public void visitReferenceExpression(PsiReferenceExpression expression) {
                 super.visitReferenceExpression(expression);
                 checkSideOnly(expression, holder);
             }
+
+            /**
+             * Checks if the method is marked with the SideOnly annotation and if it is being accessed from the wrong side.
+             *
+             * @param method  The method to visit.
+             */
 
             @Override
             public void visitMethod(PsiMethod method) {
@@ -25,11 +56,26 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
                 checkSideOnly(method, holder);
             }
 
+            /**
+             * Checks if the method being called is marked with the SideOnly annotation and if it is being accessed
+             * from the wrong side.
+             *
+             * @param expression  The method call expression to visit.
+             */
+
             @Override
             public void visitMethodCallExpression(PsiMethodCallExpression expression) {
                 super.visitMethodCallExpression(expression);
                 checkSideOnly(expression.getMethodExpression(), holder);
             }
+
+            /**
+             * Checks if the class being instantiated is marked with the SideOnly annotation and if it is being accessed
+             * from the wrong side. Also checks if the constructor being called is marked with the SideOnly annotation
+             * and if it is being accessed from the wrong side.
+             *
+             * @param expression  The new expression to visit.
+             */
 
             @Override
             public void visitNewExpression(PsiNewExpression expression) {
@@ -40,6 +86,13 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
                 else checkSideOnly(expression.getClassReference(), holder);
             }
 
+            /**
+             * Resolves an element to its actual reference.
+             *
+             * @param element  The element to resolve.
+             * @return         The resolved element, or null if the element cannot be resolved.
+             */
+
             private PsiElement getResolved(PsiElement element) {
                 if (element == null) return null;
                 PsiElement resolved;
@@ -49,6 +102,15 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
 
                 return resolved;
             }
+
+            /**
+             * Checks the given PsiElement for the "@SideOnly" annotation and compares its value to the context side.
+             * If the element's side is invalid for the current context, then a problem is registered with
+             * the ProblemsHolder.
+             *
+             * @param element the PsiElement to check for the "@SideOnly" annotation
+             * @param holder the ProblemsHolder to use for registering problems
+             */
 
             private void checkSideOnly(PsiElement element, ProblemsHolder holder) {
                 var resolved = getResolved(element);
@@ -66,6 +128,16 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
                         .registerProblem(element, "Can not access side-only " + element + " from here");
 
             }
+
+            /**
+             * Checks the given PsiElement for the "@SideOnly" annotation and compares its value against the side of the containing
+             * constructor. If the element's side is invalid for the current context, then a problem is registered with
+             the ProblemsHolder.
+             *
+             * @param element the PsiElement to check for the "@SideOnly" annotation
+             * @param constructor the PsiMethod representing the constructor to compare against
+             * @param holder the ProblemsHolder to use for registering problems
+             */
 
             private void checkSideForConstructor(PsiElement element, PsiMethod constructor, ProblemsHolder holder) {
                 var resolved = getResolved(element);
@@ -85,6 +157,14 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
 
 
             }
+
+            /**
+             * Determines the side (client or server) of a given PsiElement based on the presence of the @SideOnly
+             * annotation and the inheritance hierarchy of the element's class.
+             *
+             * @param element the PsiElement to check the side for
+             * @return the determined Side of the element (BOTH, CLIENT, SERVER, or INVALID)
+             */
 
             private Side getSide(PsiElement element) {
                 Side side = Side.BOTH;
