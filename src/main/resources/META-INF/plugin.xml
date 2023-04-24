@@ -34,7 +34,10 @@
                 enabledByDefault="true"
                 implementationClass="escaper2.testtask.sideonlyplugin.SideOnlyInspectionTool"
                 runForWholeFile="true"
-                level="ERROR"/>
-
+                level="ERROR"
+                />
+        <codeInsight.inlayProvider
+                implementationClass="escaper2.testtask.sideonlyplugin.SideOnlyHintProvider"
+                language="JAVA"/>
     </extensions>
 </idea-plugin>
