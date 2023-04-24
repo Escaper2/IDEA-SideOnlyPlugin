@@ -1,3 +1,10 @@
+/**
+ * Provides inlay hints for the SideOnly inspection tool in IntelliJ IDEA.
+ * This class implements the InlayHintsProvider interface and overrides its methods.
+ * It also contains helper methods to get the depth of an element, check if it has a SideOnly annotation,
+ * and get the side for the hint.
+ */
+
 package escaper2.testtask.sideonlyplugin;
 
 import com.intellij.codeInsight.hints.*;
@@ -18,14 +25,26 @@ import java.util.Objects;
 import java.util.Set;
 
 
-
-
 public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
+
+    /**
+     * Returns the settings key for this provider.
+     *
+     * @return the settings key for this provider
+     */
+
     @NotNull
     @Override
     public SettingsKey<NoSettings> getKey() {
         return new SettingsKey<>("TestInlayHintsProvider");
     }
+
+
+    /**
+     * Creates and returns the settings for this provider.
+     *
+     * @return the settings for this provider
+     */
 
     @Nullable
     @Override
@@ -34,11 +53,29 @@ public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
         return NoSettings;
     }
 
+    /**
+     * Creates and returns the configurable for this provider.
+     *
+     * @param settings the settings for this provider
+     * @return the configurable for this provider
+     */
+
     @NotNull
     @Override
     public ImmediateConfigurable createConfigurable(@NotNull NoSettings settings) {
         return null;
     }
+
+    /**
+     * Returns the collector for this provider and creates inlay hints for the specified PsiElement
+     * based on the SideOnly inspection tool.
+     *
+     * @param file     the PsiFile to collect hints for
+     * @param editor   the Editor to display hints in
+     * @param settings the settings for this provider
+     * @param __       the InlayHintsSink to add hints to
+     * @return the collector for this provider
+     */
 
     @Nullable
     @Override
@@ -71,6 +108,13 @@ public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
         };
     }
 
+    /**
+     * Returns the depth of the given element in the PSI tree.
+     *
+     * @param element the PsiElement to get the depth of
+     * @return the depth of the given element
+     */
+
     private int getDepth(PsiElement element) {
         int depth = 0;
 
@@ -84,6 +128,14 @@ public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
         if (element instanceof PsiAnonymousClass) return depth + getDepth(Objects.requireNonNull(PsiTreeUtil.getParentOfType(element, PsiMethod.class)));
         return depth;
     }
+
+    /**
+     * Returns true if the given element has a SideOnly annotation, false otherwise.
+     *
+     * @param element   the PsiElement to check for a SideOnly annotation
+     * @param inspector the SideOnlyInspectionTool to use for resolving the element
+     * @return true if the given element has a SideOnly annotation, false otherwise
+     */
 
     private boolean hasAnnotation(PsiElement element, SideOnlyInspectionTool inspector) {
         if (element == null) return false;
@@ -100,6 +152,15 @@ public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
         }
         return false;
     }
+
+    /**
+     * Returns the side for the @SideOnly annotation for given PsiElement, based on its
+     * containing class and method.
+     *
+     * @param element the {@link PsiElement} for which to get the side(s)
+     * @param inspector the {@link SideOnlyInspectionTool} instance to use for inspection
+     * @return a {@link Set} of strings representing the side(s) for the {@code @SideOnly} annotation on the given element,
+     */
 
     private Set<String> getSideForHint(PsiElement element, SideOnlyInspectionTool inspector) {
         Set<String> emptySide = new HashSet<>();
@@ -128,15 +189,34 @@ public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
         return elementSide;
     }
 
+    /**
+     * Determines if a particular language is supported by the plugin.
+     *
+     * @param language the language to check for support
+     * @return true if the language is supported, false otherwise
+     */
+
     @Override
     public boolean isLanguageSupported(@NotNull Language language) {
         return language.is(JavaLanguage.INSTANCE);
     }
 
+    /**
+     * Indicates whether the inspection tool should be visible in the settings menu.
+     *
+     * @return false, indicating that the tool should not be visible in settings
+     */
+
     @Override
     public boolean isVisibleInSettings() {
         return false;
     }
+
+    /**
+     * Returns the name of the inspection tool.
+     *
+     * @return the name of the inspection tool as a string
+     */
 
     @Nls(capitalization = Nls.Capitalization.Sentence)
     @NotNull
@@ -144,6 +224,12 @@ public class SideOnlyHintProvider implements InlayHintsProvider<NoSettings> {
     public String getName() {
         return null;
     }
+
+    /**
+     * Returns the preview text for the inspection tool.
+     *
+     * @return the preview text as a string or null if there is no preview text
+     */
 
     @Nullable
     @Override
