@@ -76,24 +76,6 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
             }
 
             /**
-             * Resolves an element to its actual reference.
-             *
-             * @param element  The element to resolve.
-             * @return         The resolved element, or null if the element cannot be resolved.
-             */
-
-            private PsiElement getResolved(PsiElement element) {
-                if (element == null) return null;
-                PsiElement resolved;
-
-                if (element instanceof PsiReference) resolved = ((PsiReference) element).resolve();
-                else resolved = element;
-
-                return resolved;
-            }
-
-
-            /**
              * Checks the given PsiElement for the "@SideOnly" annotation and compares its value to the context side.
              * If the element's side is invalid for the current context, then a problem is registered with
              * the ProblemsHolder.
@@ -111,6 +93,14 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
 
                 if (containingMethod != null) {
                     Set<String> methodSide = getSide(containingMethod);
+
+                    if (containingMethod.getContainingClass() instanceof PsiAnonymousClass && methodSide.isEmpty()) {
+                        PsiNewExpression newExpr = PsiTreeUtil.getParentOfType(getResolved(containingMethod), PsiNewExpression.class);
+                        assert newExpr != null;
+                        PsiJavaCodeReferenceElement ref = newExpr.getClassOrAnonymousClassReference();
+                        registerProblem(holder, ref);
+                    }
+
                     elementSide.retainAll(methodSide);
                     if (methodSide.size() > 1 && elementSide.size() == 1) registerProblem(holder, element);
                 }
@@ -157,82 +147,94 @@ public class SideOnlyInspectionTool extends AbstractBaseJavaLocalInspectionTool 
                 holder.registerProblem(element, "Can't access side-only " + element.getText() + " from here");
             }
 
-            /**
-             * Gets the side(s) that a PsiModifierListOwner is marked with.
-             *
-             * @param owner The PsiModifierListOwner to get the side(s) of.
-             * @return A set of side(s) that the owner is marked with.
-             */
-
-            private Set<String> getSide(PsiModifierListOwner owner) {
-                Set<String> side = new HashSet<>(Arrays.asList("CLIENT", "SERVER"));
-                if (owner == null) return compareSides(owner, side);
-                PsiAnnotation[] annotations = owner.getAnnotations();
-                for (PsiAnnotation annotation : annotations) {
-                    PsiAnnotationMemberValue value = annotation.findAttributeValue("value");
-                    if (value != null) {
-                        String[] name = value.getText().replaceAll("[{}]|Side\\.", "").split(", ");
-                        side.retainAll(Arrays.asList(name));
-                    }
-                }
-                return compareSides(owner, side);
-            }
-
-            /**
-             * Compares the side(s) of a code element to the side(s) of its containing class, interfaces, and/or superclass.
-             *
-             * @param element The code element to compare sides for.
-             * @param side The set of sides to compare to.
-             * @return A set of strings representing the side(s) that the code element is marked with.
-             */
-
-            private Set<String> compareSides(PsiElement element, Set<String> side) {
-                if (element instanceof PsiAnonymousClass) {
-                    PsiClass psiClass = (PsiClass) element;
-                    for (PsiClass intf : psiClass.getInterfaces()) {
-                        side.retainAll(getSide(intf));
-                    }
-
-                    PsiMethod containingMethod = PsiTreeUtil.getParentOfType(element, PsiMethod.class);
-                    side.retainAll(getSide(containingMethod));
-
-                    if (side.isEmpty()) {
-                        PsiNewExpression newExpr = PsiTreeUtil.getParentOfType(element, PsiNewExpression.class);
-                        PsiJavaCodeReferenceElement ref = newExpr.getClassOrAnonymousClassReference();
-                        registerProblem(holder, ref);
-                    }
-                    return side;
-                }
-
-                else if (element instanceof PsiClass) {
-                    PsiClass psiClass = (PsiClass) element;
-                    PsiClass superClass = psiClass.getSuperClass();
-                    side.retainAll(getSide(psiClass.getContainingClass()));
-
-                    for (PsiClass intf : psiClass.getInterfaces()) {
-                        side.retainAll(getSide(intf));
-                        if (side.isEmpty()) return side;
-                    }
-
-                    if (side.isEmpty()) return side;
-                    if (superClass == null || superClass.getQualifiedName().equals("java.lang.Object")) return side;
-
-                    side.retainAll(getSide(psiClass.getSuperClass()));
-
-                }
-
-                else if (element instanceof PsiMethod) {
-                    side.retainAll(getSide(((PsiMethod) element).getContainingClass()));
-                    return side;
-                }
-
-                else if (element instanceof PsiField) {
-                    side.retainAll(getSide(((PsiField) element).getContainingClass()));
-                    return side;
-                }
-                return side;
-            }
         };
     }
-}
 
+    /**
+     * Resolves an element to its actual reference.
+     *
+     * @param element  The element to resolve.
+     * @return         The resolved element, or null if the element cannot be resolved.
+     */
+
+    public PsiElement getResolved(PsiElement element) {
+        if (element == null) return null;
+        PsiElement resolved;
+
+        if (element instanceof PsiReference) resolved = ((PsiReference) element).resolve();
+        else resolved = element;
+
+        return resolved;
+    }
+
+    /**
+     * Gets the side(s) that a PsiModifierListOwner is marked with.
+     *
+     * @param owner The PsiModifierListOwner to get the side(s) of.
+     * @return A set of side(s) that the owner is marked with.
+     */
+
+    public Set<String> getSide(PsiModifierListOwner owner) {
+        Set<String> side = new HashSet<>(Arrays.asList("CLIENT", "SERVER"));
+        if (owner == null) return compareSides(owner, side);
+        PsiAnnotation[] annotations = owner.getAnnotations();
+        for (PsiAnnotation annotation : annotations) {
+            PsiAnnotationMemberValue value = annotation.findAttributeValue("value");
+            if (value != null) {
+                String[] name = value.getText().replaceAll("[{}]|Side\\.", "").split(", ");
+                side.retainAll(Arrays.asList(name));
+            }
+        }
+        return compareSides(owner, side);
+    }
+
+    /**
+     * Compares the side(s) of a code element to the side(s) of its containing class, interfaces, and/or superclass.
+     *
+     * @param element The code element to compare sides for.
+     * @param side The set of sides to compare to.
+     * @return A set of strings representing the side(s) that the code element is marked with.
+     */
+
+    public Set<String> compareSides(PsiElement element, Set<String> side) {
+        if (element instanceof PsiAnonymousClass) {
+            PsiClass psiClass = (PsiClass) element;
+            for (PsiClass intf : psiClass.getInterfaces()) {
+                side.retainAll(getSide(intf));
+            }
+
+            PsiMethod containingMethod = PsiTreeUtil.getParentOfType(element, PsiMethod.class);
+            side.retainAll(getSide(containingMethod));
+
+            return side;
+        }
+
+        else if (element instanceof PsiClass) {
+            PsiClass psiClass = (PsiClass) element;
+            PsiClass superClass = psiClass.getSuperClass();
+            side.retainAll(getSide(psiClass.getContainingClass()));
+
+            for (PsiClass intf : psiClass.getInterfaces()) {
+                side.retainAll(getSide(intf));
+                if (side.isEmpty()) return side;
+            }
+
+            if (side.isEmpty()) return side;
+            if (superClass == null || superClass.getQualifiedName().equals("java.lang.Object")) return side;
+
+            side.retainAll(getSide(psiClass.getSuperClass()));
+
+        }
+
+        else if (element instanceof PsiMethod) {
+            side.retainAll(getSide(((PsiMethod) element).getContainingClass()));
+            return side;
+        }
+
+        else if (element instanceof PsiField) {
+            side.retainAll(getSide(((PsiField) element).getContainingClass()));
+            return side;
+        }
+        return side;
+    }
+}
